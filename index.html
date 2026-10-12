@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mis Gastos Saganet</title>
+<meta name="description" content="Control diario de ingresos y gastos">
+<meta name="theme-color" content="#0f766e" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0b1220" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Gastos Saganet">
+<meta name="format-detection" content="telephone=no">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="top-row">
+    <div>
+      <h1>Mis Gastos Saganet</h1>
+      <p id="reloj" class="reloj"></p>
+    </div>
+    <button id="btnAjustes" class="icon-btn" aria-label="Ajustes">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h.1a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v.1a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+    </button>
+  </div>
+
+  <div class="tabs" role="tablist" id="tabs">
+    <button role="tab" data-vista="dia" aria-selected="true">Día</button>
+    <button role="tab" data-vista="semana" aria-selected="false">Semana</button>
+    <button role="tab" data-vista="mes" aria-selected="false">Mes</button>
+    <button role="tab" data-vista="anio" aria-selected="false">Año</button>
+  </div>
+
+  <div class="periodo">
+    <button id="btnAnterior" class="icon-btn" aria-label="Periodo anterior">‹</button>
+    <button id="btnHoy" class="periodo-label" aria-label="Volver a hoy"></button>
+    <button id="btnSiguiente" class="icon-btn" aria-label="Periodo siguiente">›</button>
+  </div>
+</header>
+
+<main>
+  <section class="card resumen" aria-label="Resumen del periodo">
+    <p class="etiqueta">Balance</p>
+    <p id="balance" class="balance">0,00</p>
+    <div class="resumen-cols">
+      <div>
+        <p class="etiqueta"><span class="punto ingreso"></span>Ingresos</p>
+        <p id="totIngresos" class="monto ingreso">0,00</p>
+      </div>
+      <div>
+        <p class="etiqueta"><span class="punto gasto"></span>Gastos</p>
+        <p id="totGastos" class="monto gasto">0,00</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="card" id="cardGrafica" hidden>
+    <h2 id="tituloGrafica"></h2>
+    <div id="grafica" class="grafica" role="img"></div>
+    <div id="graficaEjes" class="grafica-ejes" aria-hidden="true"></div>
+  </section>
+
+  <section class="card" id="cardCategorias" hidden>
+    <h2>Gastos por categoría</h2>
+    <ul id="categorias" class="categorias"></ul>
+  </section>
+
+  <section aria-label="Movimientos">
+    <div id="lista"></div>
+    <p id="vacio" class="vacio" hidden>Sin movimientos en este periodo.<br>Toca <strong>+</strong> para agregar uno.</p>
+  </section>
+</main>
+
+<button id="btnNuevo" class="fab" aria-label="Agregar movimiento">+</button>
+
+<!-- Formulario de movimiento -->
+<div class="overlay" id="hojaMov" hidden>
+  <form class="hoja" id="formMov" autocomplete="off" novalidate>
+    <div class="hoja-top">
+      <h2 id="tituloMov">Nuevo movimiento</h2>
+      <button type="button" class="icon-btn" data-cerrar aria-label="Cerrar">✕</button>
+    </div>
+
+    <div class="tipo" role="radiogroup" aria-label="Tipo">
+      <button type="button" role="radio" data-tipo="gasto" aria-checked="true">− Gasto</button>
+      <button type="button" role="radio" data-tipo="ingreso" aria-checked="false">+ Ingreso</button>
+    </div>
+
+    <label class="campo campo-monto">
+      <span>Monto</span>
+      <div class="monto-wrap">
+        <span id="simboloMonto">$</span>
+        <input id="inMonto" type="text" inputmode="decimal" placeholder="0.00" required>
+      </div>
+    </label>
+
+    <div class="campo">
+      <span>Categoría</span>
+      <div id="chips" class="chips"></div>
+    </div>
+
+    <label class="campo">
+      <span>Fecha y hora</span>
+      <input id="inFecha" type="datetime-local" required>
+    </label>
+
+    <label class="campo">
+      <span>Nota (opcional)</span>
+      <input id="inNota" type="text" maxlength="80" placeholder="Ej. almuerzo, gasolina…">
+    </label>
+
+    <p id="errorMov" class="error" hidden></p>
+
+    <div class="acciones">
+      <button type="button" id="btnBorrar" class="btn peligro" hidden>Eliminar</button>
+      <button type="submit" class="btn primario">Guardar</button>
+    </div>
+  </form>
+</div>
+
+<!-- Ajustes -->
+<div class="overlay" id="hojaAjustes" hidden>
+  <div class="hoja">
+    <div class="hoja-top">
+      <h2>Ajustes</h2>
+      <button type="button" class="icon-btn" data-cerrar aria-label="Cerrar">✕</button>
+    </div>
+
+    <label class="campo">
+      <span>Símbolo de moneda</span>
+      <input id="inMoneda" type="text" maxlength="4" placeholder="$">
+    </label>
+
+    <div class="campo">
+      <span>Tus datos</span>
+      <p class="ayuda">Todo se guarda solo en este teléfono. Haz una copia de vez en cuando para no perderlo.</p>
+      <button type="button" id="btnCopia" class="btn">Guardar copia de seguridad</button>
+      <button type="button" id="btnRestaurar" class="btn">Restaurar una copia</button>
+      <button type="button" id="btnCsv" class="btn">Exportar a Excel (CSV)</button>
+      <input id="inArchivo" type="file" accept="application/json,.json" hidden>
+    </div>
+
+    <div class="campo">
+      <button type="button" id="btnBorrarTodo" class="btn peligro">Borrar todos los movimientos</button>
+    </div>
+    <p id="msgAjustes" class="ayuda" role="status"></p>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
