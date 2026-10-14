@@ -1,5 +1,5 @@
 // Sube este número cada vez que cambies la app para que los teléfonos descarguen la versión nueva.
-const CACHE = 'mis-gastos-v2';
+const CACHE = 'mis-gastos-v3';
 const ARCHIVOS = ['./', 'index.html', 'styles.css', 'app.js', 'manifest.webmanifest', 'icon-180.png', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', (e) => {
@@ -16,7 +16,9 @@ self.addEventListener('activate', (e) => {
 
 // Primero la red (para recibir actualizaciones); si no hay internet, la copia guardada.
 self.addEventListener('fetch', (e) => {
-  if (e.request.method !== 'GET' || new URL(e.request.url).origin !== location.origin) return;
+  const url = new URL(e.request.url);
+  // Los pagos de GBNex (/api/…) siempre se piden a la red, nunca se guardan.
+  if (e.request.method !== 'GET' || url.origin !== location.origin || url.pathname.startsWith('/api/')) return;
   e.respondWith(
     fetch(e.request)
       .then((resp) => {

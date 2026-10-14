@@ -9,7 +9,7 @@
       ['Salud', '💊'], ['Compras', '🛍️'], ['Educación', '📚'], ['Otros', '📦'],
     ],
     ingreso: [
-      ['Salario', '💼'], ['Negocio', '🏪'], ['Ventas', '🧾'], ['Regalo', '🎁'], ['Otros', '💰'],
+      ['Internet', '🌐'], ['Salario', '💼'], ['Negocio', '🏪'], ['Ventas', '🧾'], ['Regalo', '🎁'], ['Otros', '💰'],
     ],
   };
 
@@ -24,10 +24,14 @@
     try {
       const s = JSON.parse(localStorage.getItem(CLAVE));
       if (s && Array.isArray(s.items)) {
-        return { items: s.items.filter(esValido), moneda: typeof s.moneda === 'string' && s.moneda ? s.moneda : '$' };
+        return {
+          items: s.items.filter(esValido),
+          moneda: typeof s.moneda === 'string' && s.moneda ? s.moneda : '$',
+          gbnex: s.gbnex && typeof s.gbnex.token === 'string' ? s.gbnex : null,
+        };
       }
     } catch (e) { /* datos corruptos: se empieza de cero */ }
-    return { items: [], moneda: '$' };
+    return { items: [], moneda: '$', gbnex: null };
   }
 
   function guardar() {
@@ -336,6 +340,8 @@
 
   function borrarMov() {
     if (!editando || !confirm('¿Eliminar este movimiento?')) return;
+    // Un pago de GBNex borrado aquí no se vuelve a traer.
+    if (estado.gbnex && editando.startsWith('gbnex-')) estado.gbnex.borrados = [...(estado.gbnex.borrados || []), editando];
     estado.items = estado.items.filter((m) => m.id !== editando);
     guardar();
     cerrar();
@@ -476,7 +482,94 @@
     $('msgAjustes').textContent = 'Movimientos borrados.';
   });
 
+  // ---------- Pagos de GBNex (llegan solos como ingresos) ----------
+  // El enlace de GBNex trae la llave: .../gastos/?gbnex=<llave>. La app la guarda y la quita de la barra.
+  (function conectarDesdeEnlace() {
+    const params = new URLSearchParams(location.search);
+    const token = params.get('gbnex');
+    if (!token) return;
+    if (!estado.gbnex || estado.gbnex.token !== token) {
+      const hoy = new Date();
+      estado.gbnex = {
+        api: location.origin,
+        token,
+        desde: `${hoy.getFullYear()}-${p2(hoy.getMonth() + 1)}-01`,   // la primera vez trae los pagos de este mes
+        ultima: null,
+        error: null,
+        borrados: (estado.gbnex && estado.gbnex.borrados) || [],
+      };
+      guardar();
+    }
+    history.replaceState(null, '', location.pathname);
+  })();
+
+  let sincronizando = false;
+  async function sincronizar(avisar) {
+    const g = estado.gbnex;
+    if (!g || sincronizando) return;
+    sincronizando = true;
+    try {
+      const r = await fetch(`${g.api}/api/publico/gastos/${encodeURIComponent(g.token)}/ingresos?desde=${g.desde}`, { cache: 'no-store' });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok || !d.ok) throw new Error(d.mensaje || 'GBNex no respondió bien.');
+      const ids = new Set(estado.items.map((m) => m.id));
+      const borrados = new Set(g.borrados || []);
+      let nuevos = 0;
+      for (const p of d.pagos) {
+        const id = `gbnex-${p.id}`;
+        if (ids.has(id) || borrados.has(id)) continue;
+        const cents = Math.round(Number(p.monto) * 100);
+        if (!(cents > 0) || isNaN(new Date(p.fecha).getTime())) continue;
+        estado.items.push({ id, tipo: 'ingreso', cents, cat: 'Internet', nota: [p.folio, p.cliente, p.metodo].filter(Boolean).join(' · ').slice(0, 80), fecha: p.fecha.slice(0, 16) });
+        nuevos++;
+      }
+      // La próxima vez solo se piden los últimos días (los repetidos se ignoran por su id).
+      const hace3 = new Date(Date.now() - 3 * 86400000);
+      g.desde = `${hace3.getFullYear()}-${p2(hace3.getMonth() + 1)}-${p2(hace3.getDate())}`;
+      g.empresa = d.empresa;
+      g.ultima = aInput(new Date());
+      g.error = null;
+      guardar();
+      if (nuevos) pintar();
+      if (avisar) $('msgAjustes').textContent = nuevos ? `${nuevos} pago(s) nuevo(s) de GBNex.` : 'Sin pagos nuevos.';
+    } catch (e) {
+      g.error = e && e.message && !/fetch|network|load/i.test(e.message) ? e.message : 'Sin conexión con GBNex (¿estás en tu red?).';
+      guardar();
+      if (avisar) $('msgAjustes').textContent = g.error;
+    } finally {
+      sincronizando = false;
+      pintarGbnex();
+    }
+  }
+
+  function pintarGbnex() {
+    const g = estado.gbnex;
+    $('estadoGbnex').hidden = !g;
+    $('btnSincronizar').hidden = !g;
+    $('btnDesconectar').hidden = !g;
+    if (!g) {
+      $('infoGbnex').textContent = 'No conectada. Para conectarla, abre esta app desde el enlace de GBNex (Configuración → Integraciones → App de gastos).';
+      return;
+    }
+    const hora = g.ultima ? new Date(g.ultima).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' }) : '—';
+    $('estadoGbnex').textContent = g.error ? `GBNex: ${g.error}` : `GBNex conectado · pagos al día (${hora})`;
+    $('infoGbnex').textContent = `Conectada${g.empresa ? ' a ' + g.empresa : ''}. Cada pago que registras en GBNex llega solo como ingreso (categoría Internet). Última revisión: ${hora}.`;
+  }
+
+  $('btnSincronizar').addEventListener('click', () => sincronizar(true));
+  $('btnDesconectar').addEventListener('click', () => {
+    if (!confirm('Ya no llegarán los pagos de GBNex. Los que ya llegaron se quedan. ¿Desconectar?')) return;
+    estado.gbnex = null;
+    guardar();
+    pintarGbnex();
+    $('msgAjustes').textContent = 'Desconectada de GBNex.';
+  });
+
   // ---------- Inicio ----------
+  pintarGbnex();
+  sincronizar(false);
+  setInterval(() => sincronizar(false), 60000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) sincronizar(false); });
   pintarReloj();
   setInterval(pintarReloj, 20000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) { pintarReloj(); pintar(); } });
