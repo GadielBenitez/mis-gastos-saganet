@@ -483,15 +483,24 @@
   });
 
   // ---------- Pagos de GBNex (llegan solos como ingresos) ----------
-  // El enlace de GBNex trae la llave: .../gastos/?gbnex=<llave>. La app la guarda y la quita de la barra.
+  // El enlace de GBNex trae la llave y dónde está GBNex: ?gbnex=<llave>&api=https://<servidor>.
+  // La app los guarda y los quita de la barra. Si GBNex cambia de dirección, se abre el enlace nuevo y listo.
   (function conectarDesdeEnlace() {
     const params = new URLSearchParams(location.search);
     const token = params.get('gbnex');
     if (!token) return;
-    if (!estado.gbnex || estado.gbnex.token !== token) {
+    let api = location.origin;
+    try {
+      const u = new URL(params.get('api') || location.origin);
+      if (u.protocol === 'https:' || u.protocol === 'http:') api = u.origin;
+    } catch (e) { /* se queda con el origen de la app */ }
+    if (estado.gbnex && estado.gbnex.token === token) {
+      estado.gbnex.api = api;
+      guardar();
+    } else {
       const hoy = new Date();
       estado.gbnex = {
-        api: location.origin,
+        api,
         token,
         desde: `${hoy.getFullYear()}-${p2(hoy.getMonth() + 1)}-01`,   // la primera vez trae los pagos de este mes
         ultima: null,
@@ -509,7 +518,7 @@
     if (!g || sincronizando) return;
     sincronizando = true;
     try {
-      const r = await fetch(`${g.api}/api/publico/gastos/${encodeURIComponent(g.token)}/ingresos?desde=${g.desde}`, { cache: 'no-store' });
+      const r = await fetch(`${g.api}/api/publico/gastos/${encodeURIComponent(g.token)}/ingresos?desde=${g.desde}`, { cache: 'no-store', targetAddressSpace: 'private' });
       const d = await r.json().catch(() => ({}));
       if (!r.ok || !d.ok) throw new Error(d.mensaje || 'GBNex no respondió bien.');
       const ids = new Set(estado.items.map((m) => m.id));
@@ -533,7 +542,7 @@
       if (nuevos) pintar();
       if (avisar) $('msgAjustes').textContent = nuevos ? `${nuevos} pago(s) nuevo(s) de GBNex.` : 'Sin pagos nuevos.';
     } catch (e) {
-      g.error = e && e.message && !/fetch|network|load/i.test(e.message) ? e.message : 'Sin conexión con GBNex (¿estás en tu red?).';
+      g.error = e && e.message && !/fetch|network|load/i.test(e.message) ? e.message : 'Sin conexión con GBNex (¿estás en tu red y la laptop prendida?). Los pagos llegarán después.';
       guardar();
       if (avisar) $('msgAjustes').textContent = g.error;
     } finally {
