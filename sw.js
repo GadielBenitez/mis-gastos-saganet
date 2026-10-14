@@ -1,5 +1,5 @@
 // Sube este número cada vez que cambies la app para que los teléfonos descarguen la versión nueva.
-const CACHE = 'mis-gastos-v5';
+const CACHE = 'mis-gastos-v6';
 const ARCHIVOS = ['./', 'index.html', 'styles.css', 'app.js', 'manifest.webmanifest', 'icon-180.png', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', (e) => {

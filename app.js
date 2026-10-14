@@ -485,10 +485,13 @@
   // ---------- Pagos de GBNex (llegan solos como ingresos) ----------
   // El enlace de GBNex trae la llave y dónde está GBNex: ?gbnex=<llave>&api=https://<servidor>.
   // La app los guarda y los quita de la barra. Si GBNex cambia de dirección, se abre el enlace nuevo y listo.
-  (function conectarDesdeEnlace() {
-    const params = new URLSearchParams(location.search);
+  // En iPhone el icono de la pantalla de inicio abre sin el enlace: ahí se pega en Ajustes.
+  function conectarDesdeEnlace(texto) {
+    let params;
+    try { params = texto ? new URL(String(texto).trim()).searchParams : new URLSearchParams(location.search); }
+    catch (e) { return false; }
     const token = params.get('gbnex');
-    if (!token) return;
+    if (!token || !/^[0-9a-f]{32}$/.test(token)) return false;
     let api = location.origin;
     try {
       const u = new URL(params.get('api') || location.origin);
@@ -509,8 +512,10 @@
       };
       guardar();
     }
-    history.replaceState(null, '', location.pathname);
-  })();
+    if (!texto) history.replaceState(null, '', location.pathname);
+    return true;
+  }
+  conectarDesdeEnlace();
 
   let sincronizando = false;
   async function sincronizar(avisar) {
@@ -567,6 +572,16 @@
   }
 
   $('btnSincronizar').addEventListener('click', () => sincronizar(true));
+  $('btnConectarGbnex').addEventListener('click', () => {
+    const enlace = $('inEnlaceGbnex').value;
+    if (!conectarDesdeEnlace(enlace)) {
+      $('msgAjustes').textContent = 'Ese no es un enlace de GBNex. Cópialo en GBNex: Configuración → Integraciones → App de gastos.';
+      return;
+    }
+    $('inEnlaceGbnex').value = '';
+    pintarGbnex();
+    sincronizar(true);
+  });
   $('btnDesconectar').addEventListener('click', () => {
     if (!confirm('Ya no llegarán los pagos de GBNex. Los que ya llegaron se quedan. ¿Desconectar?')) return;
     estado.gbnex = null;
