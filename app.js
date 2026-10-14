@@ -562,6 +562,8 @@
     $('estadoGbnex').hidden = !g;
     $('btnSincronizar').hidden = !g;
     $('btnDesconectar').hidden = !g;
+    // La dirección se queda escrita para la próxima vez (si cambia la IP, solo se pide código nuevo).
+    if (!$('inServidorGbnex').value) $('inServidorGbnex').value = g ? new URL(g.api).hostname : '192.168.11.61';
     if (!g) {
       $('infoGbnex').textContent = 'No conectada. Para conectarla, abre esta app desde el enlace de GBNex (Configuración → Integraciones → App de gastos).';
       return;
@@ -572,15 +574,39 @@
   }
 
   $('btnSincronizar').addEventListener('click', () => sincronizar(true));
-  $('btnConectarGbnex').addEventListener('click', () => {
-    const enlace = $('inEnlaceGbnex').value;
-    if (!conectarDesdeEnlace(enlace)) {
-      $('msgAjustes').textContent = 'Ese no es un enlace de GBNex. Cópialo en GBNex: Configuración → Integraciones → App de gastos.';
-      return;
+  // Conectar con la dirección de GBNex y el código de 6 números que muestra GBNex
+  // (Configuración → Integraciones → App de gastos → Generar código).
+  $('btnConectarGbnex').addEventListener('click', async () => {
+    const msg = $('msgAjustes');
+    const texto = $('inCodigoGbnex').value.trim();
+    const codigo = texto.replace(/\D/g, '');
+    let servidor = $('inServidorGbnex').value.trim().replace(/\/+$/, '');
+    if (!servidor) { msg.textContent = 'Escribe la dirección de GBNex (sale junto al código).'; return; }
+    if (codigo.length !== 6) { msg.textContent = 'El código son 6 números.'; return; }
+    if (!/^https?:\/\//.test(servidor)) servidor = /^[\d.]+$/.test(servidor) ? `https://${servidor}:4443` : `https://${servidor}`;
+    msg.textContent = 'Conectando…';
+    try {
+      const r = await fetch(`${servidor}/api/publico/gastos/vincular/${codigo}`, { cache: 'no-store', targetAddressSpace: 'private' });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok || !d.ok) { msg.textContent = d.mensaje || 'GBNex no aceptó el código.'; return; }
+      const hoy = new Date();
+      const antes = estado.gbnex;
+      estado.gbnex = {
+        api: new URL(servidor).origin,
+        token: d.token,
+        desde: antes && antes.token === d.token ? antes.desde : `${hoy.getFullYear()}-${p2(hoy.getMonth() + 1)}-01`,
+        ultima: null,
+        error: null,
+        empresa: d.empresa,
+        borrados: (antes && antes.borrados) || [],
+      };
+      guardar();
+      $('inCodigoGbnex').value = '';
+      pintarGbnex();
+      sincronizar(true);
+    } catch (e) {
+      msg.textContent = `No se pudo llegar a GBNex (${(e && e.message) || e}). Revisa la dirección, que estés en tu red y la laptop prendida.`;
     }
-    $('inEnlaceGbnex').value = '';
-    pintarGbnex();
-    sincronizar(true);
   });
   $('btnDesconectar').addEventListener('click', () => {
     if (!confirm('Ya no llegarán los pagos de GBNex. Los que ya llegaron se quedan. ¿Desconectar?')) return;
