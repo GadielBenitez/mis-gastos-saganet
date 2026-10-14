@@ -542,7 +542,8 @@
       if (nuevos) pintar();
       if (avisar) $('msgAjustes').textContent = nuevos ? `${nuevos} pago(s) nuevo(s) de GBNex.` : 'Sin pagos nuevos.';
     } catch (e) {
-      g.error = e && e.message && !/fetch|network|load/i.test(e.message) ? e.message : 'Sin conexión con GBNex (¿estás en tu red y la laptop prendida?). Los pagos llegarán después.';
+      const detalle = (e && e.message) || String(e);
+      g.error = /fetch|network|load/i.test(detalle) ? `Sin conexión con GBNex (${detalle}). ¿Estás en tu red y la laptop prendida? Los pagos llegarán después.` : detalle;
       guardar();
       if (avisar) $('msgAjustes').textContent = g.error;
     } finally {
