@@ -563,7 +563,7 @@
     $('btnSincronizar').hidden = !g;
     $('btnDesconectar').hidden = !g;
     // La dirección se queda escrita para la próxima vez (si cambia la IP, solo se pide código nuevo).
-    if (!$('inServidorGbnex').value) $('inServidorGbnex').value = g ? new URL(g.api).hostname : '192.168.11.61';
+    if (!$('inServidorGbnex').value) $('inServidorGbnex').value = g ? new URL(g.api).host : 'clientes.gbnexisp.com';
     if (!g) {
       $('infoGbnex').textContent = 'No conectada. Para conectarla, abre esta app desde el enlace de GBNex (Configuración → Integraciones → App de gastos).';
       return;
