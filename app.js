@@ -398,7 +398,7 @@
         nuevos = (Array.isArray(datos) ? datos : datos.items || []).filter(esValido);
       } catch (e) { nuevos = null; }
       if (!nuevos || !nuevos.length) {
-        $('msgAjustes').textContent = 'Ese archivo no es una copia válida de Mis Gastos Saganet.';
+        $('msgAjustes').textContent = 'Ese archivo no es una copia válida de Control de Gastos.';
         return;
       }
       const porId = new Map(estado.items.map((m) => [m.id, m]));

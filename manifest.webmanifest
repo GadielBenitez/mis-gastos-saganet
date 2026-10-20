@@ -1,6 +1,6 @@
 {
-  "name": "Mis Gastos Saganet",
-  "short_name": "Gastos Saganet",
+  "name": "Control de Gastos",
+  "short_name": "Control de Gastos",
   "description": "Control diario de ingresos y gastos",
   "lang": "es",
   "start_url": "./",
