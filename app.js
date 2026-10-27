@@ -518,12 +518,21 @@
   conectarDesdeEnlace();
 
   let sincronizando = false;
-  async function sincronizar(avisar) {
+// Solo cuando GBNex está en una IP de la red local se avisa a Chrome que es "red privada";
+// con GBNex en internet (dominio público) ese aviso hace que Chrome bloquee la petición.
+function opcionesFetch(url) {
+  let host = '';
+  try { host = new URL(url).hostname; } catch {}
+  const local = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|127\.)/.test(host) || host === 'localhost' || host.endsWith('.local');
+  return local ? { cache: 'no-store', targetAddressSpace: 'private' } : { cache: 'no-store' };
+}
+
+async function sincronizar(avisar) {
     const g = estado.gbnex;
     if (!g || sincronizando) return;
     sincronizando = true;
     try {
-      const r = await fetch(`${g.api}/api/publico/gastos/${encodeURIComponent(g.token)}/ingresos?desde=${g.desde}`, { cache: 'no-store', targetAddressSpace: 'private' });
+      const r = await fetch(`${g.api}/api/publico/gastos/${encodeURIComponent(g.token)}/ingresos?desde=${g.desde}`, opcionesFetch(g.api));
       const d = await r.json().catch(() => ({}));
       if (!r.ok || !d.ok) throw new Error(d.mensaje || 'GBNex no respondió bien.');
       const ids = new Set(estado.items.map((m) => m.id));
@@ -548,7 +557,7 @@
       if (avisar) $('msgAjustes').textContent = nuevos ? `${nuevos} pago(s) nuevo(s) de GBNex.` : 'Sin pagos nuevos.';
     } catch (e) {
       const detalle = (e && e.message) || String(e);
-      g.error = /fetch|network|load/i.test(detalle) ? `Sin conexión con GBNex (${detalle}). ¿Estás en tu red y la laptop prendida? Los pagos llegarán después.` : detalle;
+      g.error = /fetch|network|load/i.test(detalle) ? `Sin conexión con GBNex (${detalle}). Revisa tu internet; los pagos llegarán después.` : detalle;
       guardar();
       if (avisar) $('msgAjustes').textContent = g.error;
     } finally {
@@ -586,7 +595,7 @@
     if (!/^https?:\/\//.test(servidor)) servidor = /^[\d.]+$/.test(servidor) ? `https://${servidor}:4443` : `https://${servidor}`;
     msg.textContent = 'Conectando…';
     try {
-      const r = await fetch(`${servidor}/api/publico/gastos/vincular/${codigo}`, { cache: 'no-store', targetAddressSpace: 'private' });
+      const r = await fetch(`${servidor}/api/publico/gastos/vincular/${codigo}`, opcionesFetch(servidor));
       const d = await r.json().catch(() => ({}));
       if (!r.ok || !d.ok) { msg.textContent = d.mensaje || 'GBNex no aceptó el código.'; return; }
       const hoy = new Date();
@@ -605,7 +614,7 @@
       pintarGbnex();
       sincronizar(true);
     } catch (e) {
-      msg.textContent = `No se pudo llegar a GBNex (${(e && e.message) || e}). Revisa la dirección, que estés en tu red y la laptop prendida.`;
+      msg.textContent = `No se pudo llegar a GBNex (${(e && e.message) || e}). Revisa la dirección (ej. clientes.gbnexisp.com) y tu internet.`;
     }
   });
   $('btnDesconectar').addEventListener('click', () => {
